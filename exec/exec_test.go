@@ -1,6 +1,7 @@
 package exec
 
 import (
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -132,4 +133,21 @@ func TestExecuteWithStdinPipe(t *testing.T) {
 
 		})
 	}
+}
+
+func TestExecuteTimeoutKillsProcesses(t *testing.T) {
+	// Unique sleep duration so pgrep only matches processes from this test.
+	const uniqueCommand = "sleep 297.53"
+
+	executor := NewExecutor()
+	// "& wait" makes the shell spawn sleep as a child process, verifying that
+	// the timeout kills the whole process group, not just the direct child.
+	_, err := executor.Execute(nil, "sh", []string{"-c", uniqueCommand + " & wait"}, time.Second)
+	assert.Error(t, err)
+	assert.True(t, strings.HasPrefix(err.Error(), "timeout executing"))
+
+	// Give the kill a moment to be delivered.
+	time.Sleep(100 * time.Millisecond)
+	err = exec.Command("pgrep", "-f", uniqueCommand).Run()
+	assert.Error(t, err, "processes spawned by the command should be killed after timeout")
 }

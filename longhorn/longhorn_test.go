@@ -44,6 +44,65 @@ func TestGetVolumeNameFromReplicaDataDirectoryName(t *testing.T) {
 	}
 }
 
+func TestGetVolumeNameFromReplicaCRName(t *testing.T) {
+	type testCase struct {
+		replicaCRName string
+
+		expected    string
+		expectError bool
+	}
+	testCases := map[string]testCase{
+		"Valid replica CR name": {
+			replicaCRName: "pvc-0e045ff8-4ea6-4573-889b-afc9aa147f95-r-971c46f6",
+			expected:      "pvc-0e045ff8-4ea6-4573-889b-afc9aa147f95",
+		},
+		"Volume name ending with a replica like suffix": {
+			replicaCRName: "data-r-abcdef12-r-9f8e7d6c",
+			expected:      "data-r-abcdef12",
+		},
+		"Single character volume name": {
+			replicaCRName: "v-r-00000000",
+			expected:      "v",
+		},
+		"Replica data directory name rather than CR name": {
+			replicaCRName: "pvc-0e045ff8-4ea6-4573-889b-afc9aa147f95-971c46f6",
+			expectError:   true,
+		},
+		"Engine name rather than replica CR name": {
+			replicaCRName: "pvc-0e045ff8-4ea6-4573-889b-afc9aa147f95-e-971c46f6",
+			expectError:   true,
+		},
+		"Random ID too short": {
+			replicaCRName: "vol-1-r-short",
+			expectError:   true,
+		},
+		"Random ID too long": {
+			replicaCRName: "vol-1-r-toolongid123",
+			expectError:   true,
+		},
+		"Empty volume name": {
+			replicaCRName: "-r-5d8209ef",
+			expectError:   true,
+		},
+		"Empty replica CR name": {
+			replicaCRName: "",
+			expectError:   true,
+		},
+	}
+	for testName, testCase := range testCases {
+		t.Run(testName, func(t *testing.T) {
+			result, err := GetVolumeNameFromReplicaCRName(testCase.replicaCRName)
+			if testCase.expectError {
+				assert.NotNil(t, err, Commentf(test.ErrErrorFmt, testName, err))
+				return
+			}
+			assert.Nil(t, err, Commentf(test.ErrErrorFmt, testName, err))
+
+			assert.Equal(t, result, testCase.expected, Commentf(test.ErrResultFmt, testName))
+		})
+	}
+}
+
 func TestIsEngineProcess(t *testing.T) {
 	type testCase struct {
 		input    string
